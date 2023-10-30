@@ -1,10 +1,10 @@
-const { test, expect } = require('@jest/globals')
-const { JSDOM } = require('jsdom')
-const { normalizeUrl } = require('./crawl.js')
+const {test, expect} = require('@jest/globals')
+const {JSDOM} = require('jsdom')
+const {normalizeUrl} = require('./crawl.js')
 const {getURLsFromHTML} = require('./crawl.js')
 
 test('normalizeUrl test case 1', () => {
-  expect(normalizeUrl('https://blog.boot.dev/path/')).toBe('blog.boot.dev/path');
+    expect(normalizeUrl('https://blog.boot.dev/path/')).toBe('blog.boot.dev/path');
 });
 
 test('normalizeUrl test case 2', () => {
@@ -27,7 +27,54 @@ test('normalizeUrl test case 6', () => {
     expect(normalizeUrl('https://jestjs.io/docs/getting-started')).toBe('jestjs.io/docs/getting-started');
 });
 
-test('getURLsFromHTML test case 1', () => {
-    const dom = new JSDOM('htmlBody')
-    expect(getURLsFromHTML(dom, 'https://blog.boot.dev')).toBe('foo');
+test('getURLsFromHTML absolute urls', () => {
+    expect(getURLsFromHTML(
+        `
+        <html>
+            <body>
+            <a href="https://blog.boot.dev">some innertext</a>
+</body>
+        </html>
+        `, 'https://blog.boot.dev'
+    )).toEqual(['https://blog.boot.dev/']);
 });
+
+test('getURLSFromHTML relative urls', () => {
+    expect(getURLsFromHTML(`
+    <html>
+        <body>
+        <a href="/path/">some innertext</a>
+</body>
+    </html> 
+    `, 'https://blog.boot.dev')).toEqual(['https://blog.boot.dev/path/'])
+})
+test('getURLSFromHTML absolute and relative urls', () => {
+    expect(getURLsFromHTML(`
+    <html>
+        <body>
+            <a href="/path1/">some innertext</a>
+            <a href="https://blog.boot.dev/path2/">some innertext</a>
+        </body>
+    </html> 
+    `, 'https://blog.boot.dev')).toEqual(['https://blog.boot.dev/path1/', 'https://blog.boot.dev/path2/'])
+})
+test('getURLSFromHTML invalid link only', () => {
+    expect(getURLsFromHTML(`
+    <html>
+        <body>
+            <a href="invalid">some innertext</a>
+        </body>
+    </html> 
+    `, 'https://blog.boot.dev')).toEqual([])
+})
+test('getURLSFromHTML invalid link with relative and absolute', () => {
+    expect(getURLsFromHTML(`
+    <html>
+        <body>
+            <a href="invalid">some innertext</a>
+            <a href="/path1/">some innertext</a>
+            <a href="https://blog.boot.dev/path2/">some innertext</a>
+        </body>
+    </html> 
+    `, 'https://blog.boot.dev')).toEqual(['https://blog.boot.dev/path1/', 'https://blog.boot.dev/path2/'])
+})
