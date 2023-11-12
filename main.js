@@ -12,7 +12,11 @@ function main() {
     } else {
         console.log(`Crawler is starting at ${process.argv[2]} ...`)
     }
-    crawlPage(process.argv[2])
+    const report = crawlPage(process.argv[2], process.argv[2], {})
+    console.log(`Report data:
+    ${report}
+    `)
+
 }
 
 main()
