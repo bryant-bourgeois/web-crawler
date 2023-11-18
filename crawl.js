@@ -1,6 +1,6 @@
 const {JSDOM} = require('jsdom')
 
-function normalizeUrl(url) {
+function normalizeURL(url) {
     let path;
     const urlObject = new URL(url)
     if (url[url.length - 1] === '/') {
@@ -36,64 +36,54 @@ function getURLsFromHTML(htmlBody, baseURL) {
     return links.filter(n => n)
 }
 
-async function crawlPage(baseURL, currentURL, pages, count = 0) {
-    if (count >= 100) {
-        console.log(pages)
+async function crawlPage(baseURL, currentURL, pages) {
+    const currentUrlObj = new URL(currentURL)
+    const baseUrlObj = new URL(baseURL)
+    if (currentUrlObj.hostname !== baseUrlObj.hostname) {
         return pages
     }
-    count++
-    const normCurrentURL = normalizeUrl(currentURL)
-    if (pages[normCurrentURL] !== undefined) {
-        pages[normCurrentURL] += 1
+
+    const normalizedURL = normalizeURL(currentURL)
+
+    if (pages[normalizedURL] > 0) {
+        pages[normalizedURL]++
         return pages
+    }
+
+    if (currentURL === baseURL) {
+        pages[normalizedURL] = 0
     } else {
-        if (normCurrentURL === normalizeUrl(baseURL)) {
-            pages[normCurrentURL] = 0
-        } else {
-            pages[normCurrentURL] = 1
-        }
+        pages[normalizedURL] = 1
     }
 
-    console.log(`Fetching ${normCurrentURL} ...`)
-
-    async function getPage(URL) {
-        return await fetch(URL)
-    }
-
-    let response;
+    console.log(`crawling ${currentURL}`)
+    let htmlBody = ''
     try {
-        response = await getPage('https://' + normCurrentURL)
-    } catch (e) {
-        console.error(e.message)
-    }
-    const contentType = (response?.headers.get('content-type'))
-    if (contentType === undefined) {
-        return pages
-    }
-
-    if (response.status >= 400 && response.status <= 599) {
-        console.log(`Error in request: HTTP response code ${response.status}, ${response.statusText}`)
-        return pages
-    } else if (!contentType.includes('text/html')) {
-        console.log(`Error in request. Response data is not of ContentType: text/html`)
-        return pages
-    }
-    let htmlPage;
-    const parsed = await response.text()
-        .then(data => htmlPage = data)
-
-    const links = getURLsFromHTML(htmlPage, baseURL)
-
-    let newPages
-    for (const link of links) {
-        newPages = crawlPage(baseURL, link, pages)
+        const resp = await fetch(currentURL)
+        if (resp.status > 399) {
+            console.log(`Got HTTP error, status code: ${resp.status}`)
+            return pages
+        }
+        const contentType = resp.headers.get('content-type')
+        if (!contentType.includes('text/html')) {
+            console.log(`Got non-html response: ${contentType}`)
+            return pages
+        }
+        htmlBody = await resp.text()
+    } catch (err) {
+        console.log(err.message)
     }
 
-    return await newPages
+    const nextURLs = getURLsFromHTML(htmlBody, baseURL)
+    for (const nextURL of nextURLs) {
+        pages = await crawlPage(baseURL, nextURL, pages)
+    }
+
+    return pages
 }
 
 module.exports = {
-    normalizeUrl,
+    normalizeURL,
     getURLsFromHTML,
     crawlPage,
 }
